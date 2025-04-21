@@ -1,0 +1,28 @@
+{
+  "name": "microphone-fluid-simulation",
+  "version": "1.0.0",
+  "description": "Interactive fluid simulation driven by microphone input",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "fluid",
+    "simulation",
+    "webgl",
+    "microphone",
+    "audio",
+    "visualization"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "gpu-io": "^0.2.0",
+    "tweakpane": "^3.1.0"
+  },
+  "devDependencies": {
+    "vite": "^4.3.0"
+  }
+}

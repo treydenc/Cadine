@@ -1,0 +1,30 @@
+# Node modules
+node_modules/
+
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependency directories
+.pnpm/
+.package-lock.json
+yarn.lock
+
+# Environment files
+.env
+.env.* 
+
+# Vite cache
+.vite/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# VSCode settings
+.vscode/
+
+# Optional: ignore any temporary or experimental directory
+other/

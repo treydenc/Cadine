@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Microphone Access</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #visualizer {
+            width: 100%;
+            height: 100px;
+            background-color: #f0f0f0;
+            margin-top: 20px;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+    </style>
+</head>
+<body>
+    <h1>Browser Microphone Access</h1>
+    <p>This simple example demonstrates how to access and record audio from your browser's microphone.</p>
+    
+    <div class="controls">
+        <button id="startButton">Start Recording</button>
+        <button id="stopButton" disabled>Stop Recording</button>
+        <button id="playButton" disabled>Play Recording</button>
+    </div>
+    
+    <div id="statusMessage" class="status"></div>
+    
+    <canvas id="visualizer"></canvas>
+    
+    <script>
+        // DOM elements
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const playButton = document.getElementById('playButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const visualizer = document.getElementById('visualizer');
+        const canvasContext = visualizer.getContext('2d');
+        
+        // Audio context and variables
+        let audioContext;
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioStream;
+        let audioBuffer;
+        let analyser;
+        
+        // Initialize audio context
+        function initAudio() {
+            try {
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioContext();
+                return true;
+            } catch (e) {
+                showStatus('Web Audio API is not supported in this browser.', 'error');
+                return false;
+            }
+        }
+        
+        // Request microphone access
+        async function getMicrophone() {
+            if (!initAudio()) return;
+            
+            try {
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Set up the recorder
+                mediaRecorder = new MediaRecorder(audioStream);
+                
+                // Set up the analyser for visualization
+                const source = audioContext.createMediaStreamSource(audioStream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                
+                // Start visualization
+                visualize();
+                
+                // Handle data available event
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                // Handle recording stop event
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    audioBuffer = URL.createObjectURL(audioBlob);
+                    playButton.disabled = false;
+                    showStatus('Recording stopped. Click "Play Recording" to listen.', 'success');
+                };
+                
+                // Update UI
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                showStatus('Recording started. Speak into your microphone.', 'success');
+                
+                // Start recording
+                mediaRecorder.start();
+                
+            } catch (error) {
+                showStatus(`Error accessing microphone: ${error.message}`, 'error');
+                console.error('Error accessing microphone:', error);
+            }
+        }
+        
+        // Stop recording
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                audioStream.getTracks().forEach(track => track.stop());
+            }
+            
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        }
+        
+        // Play recorded audio
+        function playRecording() {
+            if (audioBuffer) {
+                const audio = new Audio(audioBuffer);
+                audio.play();
+                showStatus('Playing recording...', 'success');
+            }
+        }
+        
+        // Display status message
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `status ${type}`;
+        }
+        
+        // Visualize audio
+        function visualize() {
+            if (!analyser) return;
+            
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            canvasContext.clearRect(0, 0, visualizer.width, visualizer.height);
+            
+            function draw() {
+                requestAnimationFrame(draw);
+                analyser.getByteFrequencyData(dataArray);
+                
+                canvasContext.fillStyle = 'rgb(240, 240, 240)';
+                canvasContext.fillRect(0, 0, visualizer.width, visualizer.height);
+                
+                const barWidth = (visualizer.width / bufferLength) * 2.5;
+                let x = 0;
+                
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = dataArray[i] / 2;
+                    canvasContext.fillStyle = `rgb(${barHeight + 100}, 50, 50)`;
+                    canvasContext.fillRect(x, visualizer.height - barHeight, barWidth, barHeight);
+                    x += barWidth + 1;
+                }
+            }
+            
+            draw();
+        }
+        
+        // Set up event listeners
+        startButton.addEventListener('click', getMicrophone);
+        stopButton.addEventListener('click', stopRecording);
+        playButton.addEventListener('click', playRecording);
+        
+        // Resize canvas to match its display size
+        function resizeCanvas() {
+            visualizer.width = visualizer.clientWidth;
+            visualizer.height = visualizer.clientHeight;
+        }
+        
+        // Initial setup
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        showStatus('Click "Start Recording" to begin.', 'success');
+    </script>
+</body>
+</html>
